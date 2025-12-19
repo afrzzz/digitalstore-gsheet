@@ -5,14 +5,10 @@ import ProductCard from "../components/ProductCard";
 import Loader from "../components/Loader";
 import Pagination from "../components/Pagination";
 import SearchInput from "../components/SearchInput";
-import ErrorMessage from "../components/ErrorMessage";
-import { useNavigate } from "react-router-dom";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9);
@@ -26,22 +22,11 @@ export default function Products() {
   }, [search]);
 
   useEffect(() => {
-    const fetchProducts = () => {
-      setLoading(true);
-      setError(null);
-      getProducts()
-        .then((data) => setProducts(Array.isArray(data) ? data : []))
-        .catch((err) => {
-          if (err?.isServerDown) {
-            navigate("/server-down");
-            return;
-          }
-          setError(err);
-        })
-        .finally(() => setLoading(false));
-    };
-
-    fetchProducts();
+    setLoading(true);
+    getProducts()
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -102,20 +87,6 @@ export default function Products() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         {loading ? (
           <Loader />
-        ) : error ? (
-          <div className="py-10">
-            <ErrorMessage
-              error={error}
-              onRetry={() => {
-                setLoading(true);
-                setError(null);
-                getProducts()
-                  .then((data) => setProducts(Array.isArray(data) ? data : []))
-                  .catch((err) => setError(err))
-                  .finally(() => setLoading(false));
-              }}
-            />
-          </div>
         ) : filteredProducts.length > 0 ? (
           <motion.div
             key={currentPage}
