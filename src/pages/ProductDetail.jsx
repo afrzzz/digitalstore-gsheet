@@ -1,25 +1,40 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { getProducts } from "../services/productService";
 import { ENV } from "../config/env";
 import { motion } from "framer-motion";
 import VideoPlayer from "../components/VideoPlayer";
+import ErrorMessage from "../components/ErrorMessage";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    getProducts()
-      .then((data) => {
-        const found = Array.isArray(data)
-          ? data.find((p) => String(p.id) === id)
-          : null;
-        setProduct(found);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    const fetch = () => {
+      setLoading(true);
+      setError(null);
+      getProducts()
+        .then((data) => {
+          const found = Array.isArray(data)
+            ? data.find((p) => String(p.id) === id)
+            : null;
+          setProduct(found);
+        })
+        .catch((err) => {
+          if (err?.isServerDown) {
+            navigate("/server-down");
+            return;
+          }
+          setError(err);
+        })
+        .finally(() => setLoading(false));
+    };
+
+    fetch();
   }, [id]);
 
   useEffect(() => {
@@ -35,6 +50,28 @@ export default function ProductDetail() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
           className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <ErrorMessage
+          error={error}
+          onRetry={() => {
+            setLoading(true);
+            setError(null);
+            getProducts()
+              .then((data) => {
+                const found = Array.isArray(data)
+                  ? data.find((p) => String(p.id) === id)
+                  : null;
+                setProduct(found);
+              })
+              .catch((err) => setError(err))
+              .finally(() => setLoading(false));
+          }}
         />
       </div>
     );
