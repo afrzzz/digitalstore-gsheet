@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getProducts } from "../services/productService";
 import ProductCard from "../components/ProductCard";
 import Loader from "../components/Loader";
@@ -12,6 +12,32 @@ export default function Products() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9);
+  const [newProductIds, setNewProductIds] = useState(new Set());
+  const prevProductsRef = useRef([]);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await getProducts();
+      const productList = Array.isArray(data) ? data : [];
+
+      // Cek produk baru dibanding sebelumnya
+      const prevIds = new Set(prevProductsRef.current.map((p) => p.id));
+      const newIds = productList
+        .filter((p) => !prevIds.has(p.id))
+        .map((p) => p.id);
+
+      if (newIds.length > 0) {
+        setNewProductIds((prev) => new Set([...prev, ...newIds]));
+      }
+
+      setProducts(productList);
+      prevProductsRef.current = productList;
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.title = "Gumiess Store - Product";
@@ -23,10 +49,9 @@ export default function Products() {
 
   useEffect(() => {
     setLoading(true);
-    getProducts()
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    fetchProducts();
+    const interval = setInterval(fetchProducts, 5000); // polling tiap 5 detik
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -54,7 +79,6 @@ export default function Products() {
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            {/* HEADLINE dengan gradient sama seperti logo Gumiess Store */}
             <h1
               className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text"
               style={{
@@ -64,8 +88,6 @@ export default function Products() {
             >
               Daftar Produk
             </h1>
-
-            {/* SUBHEADLINE dengan animasi subtle */}
             <motion.p
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -98,17 +120,22 @@ export default function Products() {
             }}
             className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6"
           >
-            {paginatedProducts.map((item) => (
-              <motion.div
-                key={item.id}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  show: { opacity: 1, y: 0 },
-                }}
-              >
-                <ProductCard product={item} />
-              </motion.div>
-            ))}
+            <AnimatePresence>
+              {paginatedProducts.map((item) => {
+                const isNew = newProductIds.has(item.id);
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 20, scale: isNew ? 1.1 : 1 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <ProductCard product={item} />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <div className="text-center text-gray-500 py-24">
